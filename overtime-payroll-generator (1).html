@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overtime Payroll Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a18;
+    --paper: #f5f2eb;
+    --rule: #d4cfc4;
+    --accent: #c8401a;
+    --muted: #8a8478;
+    --surface: #eeeae0;
+    --success: #2d6a4f;
+    --white: #ffffff;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--ink);
+    padding: 1.6rem 3rem;
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    border-bottom: 2px solid var(--accent);
+  }
+
+  header h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 1.5rem;
+    color: var(--paper);
+    letter-spacing: -0.02em;
+  }
+
+  header span {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #666;
+    border: 1px solid #444;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    min-height: calc(100vh - 72px);
+  }
+
+  .form-panel {
+    background: var(--surface);
+    border-right: 2px solid var(--ink);
+    padding: 2.5rem 2rem;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 1.2rem;
+  }
+
+  .form-group { margin-bottom: 1.1rem; }
+
+  .form-group label {
+    display: block;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  input, select {
+    width: 100%;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    padding: 0.6rem 0.75rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--ink);
+    outline: none;
+    border-radius: 0;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus { border-color: var(--ink); }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 1.8rem 0 1.5rem;
+  }
+
+  .ot-block {
+    border: 1.5px solid var(--rule);
+    background: var(--paper);
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .ot-block-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .ot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ot-dot.weekday { background: var(--muted); }
+  .ot-dot.sunday { background: var(--accent); }
+
+  .ot-block-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .ot-block-rate {
+    margin-left: auto;
+    font-size: 0.62rem;
+    color: var(--muted);
+    border: 1px solid var(--rule);
+    padding: 0.1rem 0.5rem;
+  }
+
+  .calc-line {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    min-height: 1.2rem;
+  }
+
+  .calc-line.pay { color: var(--accent); }
+  .calc-line.toil { color: var(--success); }
+
+  .toil-summary {
+    border: 1.5px solid var(--rule);
+    background: var(--paper);
+    padding: 1rem 1.2rem;
+    margin: 1.5rem 0;
+  }
+
+  .toil-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .toil-row:last-child { border-bottom: none; padding-top: 0.5rem; font-weight: 500; }
+  .toil-row .amt { color: var(--success); }
+
+  .btn-generate {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 1rem;
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    margin-top: 1.2rem;
+    transition: background 0.2s;
+  }
+
+  .btn-generate:hover { background: #a33214; }
+
+  .preview-panel {
+    background: #c8c5bc;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(0,0,0,0.04) 28px);
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .preview-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 1.5rem;
+    align-self: flex-start;
+  }
+
+  .pdf-preview {
+    background: white;
+    width: 100%;
+    max-width: 680px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.2);
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+  }
+
+  .pp-header {
+    background: var(--ink);
+    padding: 1.8rem 2.2rem;
+    border-bottom: 3px solid var(--accent);
+  }
+
+  .pp-company {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 1.5rem;
+    color: var(--paper);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.2rem;
+  }
+
+  .pp-doctype {
+    font-size: 0.58rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .pp-body { padding: 1.8rem 2.2rem; }
+
+  .pp-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.2rem 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 1.5rem;
+  }
+
+  .pp-meta-item label {
+    display: block;
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .pp-meta-item .v { font-size: 0.78rem; color: var(--ink); font-weight: 500; }
+
+  .pp-sec { font-size: 0.55rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+
+  .pp-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+
+  .pp-table th {
+    font-size: 0.52rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1.5px solid var(--ink);
+    text-align: left;
+  }
+
+  .pp-table td {
+    padding: 0.75rem 0.6rem;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+
+  .pp-table tr:last-child td { border-bottom: none; }
+
+  .rate-pill {
+    display: inline-block;
+    font-size: 0.55rem;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid;
+    letter-spacing: 0.08em;
+    margin-left: 0.4rem;
+  }
+
+  .rate-pill.wk { border-color: var(--muted); color: var(--muted); }
+  .rate-pill.su { border-color: var(--accent); color: var(--accent); }
+  .rate-pill.toil { border-color: var(--success); color: var(--success); }
+
+  .pp-boxes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .pp-box {
+    border: 1.5px solid var(--rule);
+    padding: 1rem 1.2rem;
+    background: var(--surface);
+  }
+
+  .pp-box label {
+    display: block;
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .pp-box .big {
+    font-family: 'Fraunces', serif;
+    font-size: 1.8rem;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  .pp-box .big.pay { color: var(--accent); }
+  .pp-box .big.toil-color { color: var(--success); }
+
+  .pp-toil-breakdown {
+    border: 1px solid var(--rule);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    margin-bottom: 1.5rem;
+    background: var(--surface);
+  }
+
+  .pp-toil-breakdown span { color: var(--muted); }
+  .pp-toil-breakdown strong { color: var(--ink); font-weight: 500; }
+
+  .pp-footer {
+    border-top: 1.5px solid var(--ink);
+    padding: 1.4rem 2.2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    background: var(--surface);
+  }
+
+  .pp-sig label {
+    display: block;
+    font-size: 0.52rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  .pp-sig-line {
+    border-bottom: 1px solid var(--ink);
+    height: 28px;
+    margin-bottom: 0.3rem;
+  }
+
+  .pp-sig-name { font-size: 0.62rem; color: var(--muted); }
+  .pp-ref { text-align: right; font-size: 0.55rem; color: var(--muted); padding: 0.6rem 2.2rem; border-top: 1px solid var(--rule); }
+
+  .empty-state { padding: 5rem 2rem; text-align: center; color: var(--muted); }
+  .empty-state .e-big { font-family: 'Fraunces', serif; font-size: 4rem; font-weight: 300; opacity: 0.2; }
+  .empty-state p { font-size: 0.68rem; letter-spacing: 0.1em; margin-top: 0.5rem; }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .form-panel { border-right: none; border-bottom: 2px solid var(--ink); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Overtime Payroll Generator</h1>
+  <span>Monthly Summary</span>
+</header>
+
+<div class="app">
+
+  <div class="form-panel">
+
+    <div class="section-label">Employee Details</div>
+
+    <div class="form-group">
+      <label>Company Name</label>
+      <input type="text" id="company" placeholder="Your Studio Name" oninput="render()">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Employee Name</label>
+        <input type="text" id="empName" placeholder="Full Name" oninput="render()">
+      </div>
+      <div class="form-group">
+        <label>Employee ID</label>
+        <input type="text" id="empId" placeholder="EMP-001" oninput="render()">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Role</label>
+        <select id="role" onchange="render()">
+          <option>Designer</option>
+          <option>Labourer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Hourly Rate (R)</label>
+        <input type="number" id="rate" placeholder="0.00" step="0.01" min="0" oninput="render()">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Pay Period Start</label>
+        <input type="date" id="pStart" oninput="render()">
+      </div>
+      <div class="form-group">
+        <label>Pay Period End</label>
+        <input type="date" id="pEnd" oninput="render()">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Approving Executive</label>
+      <input type="text" id="exec" placeholder="Full Name" oninput="render()">
+    </div>
+
+    <hr class="divider">
+    <div class="section-label">Overtime Hours This Period</div>
+
+    <div class="ot-block">
+      <div class="ot-block-header">
+        <div class="ot-dot weekday"></div>
+        <div class="ot-block-title">Mon – Sat Overtime</div>
+        <div class="ot-block-rate">1.5×</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin:0">
+          <label>Total OT Hours</label>
+          <input type="number" id="wkHrs" placeholder="0.0" step="0.5" min="0" oninput="render()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Compensation</label>
+          <select id="wkType" onchange="render()">
+            <option value="pay">Additional Pay</option>
+            <option value="toil">TOIL</option>
+          </select>
+        </div>
+      </div>
+      <div class="calc-line" id="wkCalc"></div>
+    </div>
+
+    <div class="ot-block">
+      <div class="ot-block-header">
+        <div class="ot-dot sunday"></div>
+        <div class="ot-block-title">Sunday Overtime</div>
+        <div class="ot-block-rate">2×</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin:0">
+          <label>Total OT Hours</label>
+          <input type="number" id="suHrs" placeholder="0.0" step="0.5" min="0" oninput="render()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Compensation</label>
+          <select id="suType" onchange="render()">
+            <option value="pay">Additional Pay</option>
+            <option value="toil">TOIL</option>
+          </select>
+        </div>
+      </div>
+      <div class="calc-line" id="suCalc"></div>
+    </div>
+
+    <hr class="divider">
+    <div class="section-label">TOIL Balance</div>
+
+    <div class="form-group">
+      <label>Opening TOIL Balance (weighted hrs)</label>
+      <input type="number" id="toilOpen" placeholder="0.0" step="0.5" min="0" oninput="render()">
+    </div>
+
+    <div class="toil-summary">
+      <div class="toil-row"><span>Opening Balance</span><span class="amt" id="ts-open">0.0 hrs</span></div>
+      <div class="toil-row"><span>Accrued This Period</span><span class="amt" id="ts-accrued">+0.0 hrs</span></div>
+      <div class="toil-row"><span>Closing Balance</span><span class="amt" id="ts-close">0.0 hrs</span></div>
+    </div>
+
+    <button class="btn-generate" onclick="generatePDF()">↓ Generate & Download PDF</button>
+
+  </div>
+
+  <div class="preview-panel">
+    <div class="preview-label">Live Preview</div>
+    <div class="pdf-preview" id="preview">
+      <div class="empty-state">
+        <div class="e-big">OT</div>
+        <p>Fill in the form to preview</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const DOC_REF = (() => {
+    const d = new Date();
+    return `OT-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}-${Math.floor(Math.random()*9000)+1000}`;
+  })();
+
+  const g = id => document.getElementById(id);
+  const v = id => g(id)?.value || '';
+  const n = id => parseFloat(g(id)?.value) || 0;
+
+  function calcToil() {
+    const open = n('toilOpen');
+    let accrued = 0;
+    if (v('wkType') === 'toil') accrued += n('wkHrs') * 1.5;
+    if (v('suType') === 'toil') accrued += n('suHrs') * 2;
+    return { open, accrued, close: open + accrued };
+  }
+
+  function calcPay() {
+    const rate = n('rate');
+    let total = 0;
+    if (v('wkType') === 'pay') total += n('wkHrs') * 1.5 * rate;
+    if (v('suType') === 'pay') total += n('suHrs') * 2 * rate;
+    return total;
+  }
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    return new Date(s).toLocaleDateString('en-ZA', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function fmtPeriod() {
+    const s = v('pStart'), e = v('pEnd');
+    if (!s && !e) return '—';
+    return `${fmtDate(s)} – ${fmtDate(e)}`;
+  }
+
+  function render() {
+    const rate = n('rate');
+    const wkHrs = n('wkHrs');
+    const suHrs = n('suHrs');
+    const wkType = v('wkType');
+    const suType = v('suType');
+    const toil = calcToil();
+    const pay = calcPay();
+
+    // Inline calc hints
+    const wkEl = g('wkCalc');
+    if (wkHrs > 0) {
+      wkEl.className = `calc-line ${wkType}`;
+      wkEl.textContent = wkType === 'pay'
+        ? (rate > 0 ? `= R${(wkHrs*1.5*rate).toFixed(2)} payable` : `${wkHrs} hrs × 1.5`)
+        : `= +${(wkHrs*1.5).toFixed(1)} weighted TOIL hrs`;
+    } else { wkEl.className = 'calc-line'; wkEl.textContent = ''; }
+
+    const suEl = g('suCalc');
+    if (suHrs > 0) {
+      suEl.className = `calc-line ${suType}`;
+      suEl.textContent = suType === 'pay'
+        ? (rate > 0 ? `= R${(suHrs*2*rate).toFixed(2)} payable` : `${suHrs} hrs × 2.0`)
+        : `= +${(suHrs*2).toFixed(1)} weighted TOIL hrs`;
+    } else { suEl.className = 'calc-line'; suEl.textContent = ''; }
+
+    // TOIL summary
+    g('ts-open').textContent = `${toil.open.toFixed(1)} hrs`;
+    g('ts-accrued').textContent = `+${toil.accrued.toFixed(1)} hrs`;
+    g('ts-close').textContent = `${toil.close.toFixed(1)} hrs`;
+
+    const company = v('company') || 'Studio Name';
+    const empName = v('empName') || 'Employee Name';
+    const empId = v('empId') || '—';
+    const role = v('role');
+    const exec = v('exec') || '—';
+
+    let rows = '';
+    if (wkHrs > 0) {
+      const comp = wkType === 'pay'
+        ? (rate > 0 ? `R${(wkHrs*1.5*rate).toFixed(2)}` : '—')
+        : `+${(wkHrs*1.5).toFixed(1)} hrs`;
+      const pill = wkType === 'toil' ? '<span class="rate-pill toil">TOIL</span>' : '<span class="rate-pill wk">PAY</span>';
+      rows += `<tr><td>Mon – Sat</td><td>${wkHrs.toFixed(1)} hrs</td><td>1.5×</td><td>${comp} ${pill}</td></tr>`;
+    }
+    if (suHrs > 0) {
+      const comp = suType === 'pay'
+        ? (rate > 0 ? `R${(suHrs*2*rate).toFixed(2)}` : '—')
+        : `+${(suHrs*2).toFixed(1)} hrs`;
+      const pill = suType === 'toil' ? '<span class="rate-pill toil">TOIL</span>' : '<span class="rate-pill su">PAY</span>';
+      rows += `<tr><td>Sunday</td><td>${suHrs.toFixed(1)} hrs</td><td>2×</td><td>${comp} ${pill}</td></tr>`;
+    }
+    if (!rows) rows = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem;font-size:0.7rem">No overtime entered</td></tr>`;
+
+    g('preview').innerHTML = `
+      <div class="pp-header">
+        <div class="pp-company">${company}</div>
+        <div class="pp-doctype">Overtime Payroll Submission</div>
+      </div>
+      <div class="pp-body">
+        <div class="pp-meta">
+          <div class="pp-meta-item"><label>Employee</label><div class="v">${empName}</div></div>
+          <div class="pp-meta-item"><label>ID / Role</label><div class="v">${empId} · ${role}</div></div>
+          <div class="pp-meta-item"><label>Pay Period</label><div class="v">${fmtPeriod()}</div></div>
+          <div class="pp-meta-item"><label>Document Ref</label><div class="v">${DOC_REF}</div></div>
+          <div class="pp-meta-item"><label>Generated</label><div class="v">${fmtDate(new Date().toISOString().slice(0,10))}</div></div>
+          <div class="pp-meta-item"><label>Exec Approval</label><div class="v">${exec}</div></div>
+        </div>
+        <div class="pp-sec">Overtime Summary</div>
+        <table class="pp-table">
+          <thead><tr><th>Period Type</th><th>Total OT Hours</th><th>Rate</th><th>Compensation</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="pp-boxes">
+          <div class="pp-box"><label>Total Overtime Pay Owed</label><div class="big pay">${rate > 0 && pay > 0 ? `R${pay.toFixed(2)}` : 'R0.00'}</div></div>
+          <div class="pp-box"><label>Closing TOIL Balance</label><div class="big toil-color">${toil.close.toFixed(1)} hrs</div></div>
+        </div>
+        <div class="pp-toil-breakdown">
+          <span>Opening TOIL: <strong>${toil.open.toFixed(1)} hrs</strong></span>
+          <span>Accrued: <strong>+${toil.accrued.toFixed(1)} hrs</strong></span>
+          <span>Closing: <strong>${toil.close.toFixed(1)} hrs</strong></span>
+        </div>
+      </div>
+      <div class="pp-footer">
+        <div class="pp-sig"><label>Employee Signature</label><div class="pp-sig-line"></div><div class="pp-sig-name">${empName}</div></div>
+        <div class="pp-sig"><label>Executive Approval</label><div class="pp-sig-line"></div><div class="pp-sig-name">${exec}</div></div>
+      </div>
+      <div class="pp-ref">Ref: ${DOC_REF}</div>
+    `;
+  }
+
+  function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210;
+
+    const ink = [26,26,24], accent = [200,64,26], muted = [138,132,120];
+    const rule = [212,207,196], surface = [238,234,224], green = [45,106,79], white = [255,255,255];
+
+    const company = v('company') || 'Studio';
+    const empName = v('empName') || 'Employee';
+    const empId   = v('empId') || '—';
+    const role    = v('role');
+    const exec    = v('exec') || '—';
+    const rate    = n('rate');
+    const wkHrs  = n('wkHrs');
+    const suHrs  = n('suHrs');
+    const wkType = v('wkType');
+    const suType = v('suType');
+    const toil   = calcToil();
+    const pay    = calcPay();
+
+    // Header
+    doc.setFillColor(...ink); doc.rect(0,0,W,26,'F');
+    doc.setFillColor(...accent); doc.rect(0,26,W,1.5,'F');
+    doc.setTextColor(...white); doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.text(company, 14, 12);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(150,150,150);
+    doc.text('OVERTIME PAYROLL SUBMISSION', 14, 19);
+
+    let y = 36;
+
+    // Meta grid
+    const meta = [
+      ['EMPLOYEE', empName], ['ID / ROLE', `${empId} · ${role}`], ['PAY PERIOD', fmtPeriod()],
+      ['DOCUMENT REF', DOC_REF], ['GENERATED', fmtDate(new Date().toISOString().slice(0,10))], ['EXEC APPROVAL', exec],
+    ];
+    const cW = (W-28)/3;
+    meta.forEach(([lbl,val],i) => {
+      const cx = 14 + (i%3)*cW, cy = y + Math.floor(i/3)*13;
+      doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted); doc.text(lbl, cx, cy);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...ink); doc.text(val, cx, cy+5);
+    });
+
+    y += 30;
+    doc.setDrawColor(...ink); doc.setLineWidth(0.5); doc.line(14,y,W-14,y);
+    y += 8;
+
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('OVERTIME SUMMARY', 14, y);
+    y += 5;
+
+    // Table header
+    const tc = [14,68,108,140,172];
+    doc.setFillColor(...surface); doc.rect(14,y,W-28,7,'F');
+    doc.setFontSize(5.5); doc.setTextColor(...muted);
+    ['PERIOD TYPE','TOTAL OT HOURS','RATE','COMPENSATION','VALUE'].forEach((h,i) => doc.text(h, tc[i]+1, y+4.5));
+    y += 9;
+
+    const rows = [];
+    if (wkHrs > 0) rows.push({ label:'Mon – Sat', hrs:wkHrs, mult:1.5, type:wkType });
+    if (suHrs > 0) rows.push({ label:'Sunday', hrs:suHrs, mult:2, type:suType });
+
+    rows.forEach((r,i) => {
+      if (i%2===0) { doc.setFillColor(248,246,241); doc.rect(14,y-1,W-28,9,'F'); }
+      const compLabel = r.type === 'toil' ? 'TOIL' : 'Additional Pay';
+      let valStr = r.type === 'toil' ? `+${(r.hrs*r.mult).toFixed(1)} hrs` : (rate > 0 ? `R${(r.hrs*r.mult*rate).toFixed(2)}` : `${r.mult}×`);
+
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...ink);
+      doc.text(r.label, tc[0]+1, y+5);
+      doc.text(`${r.hrs.toFixed(1)} hrs`, tc[1]+1, y+5);
+      doc.text(`${r.mult}×`, tc[2]+1, y+5);
+      doc.text(compLabel, tc[3]+1, y+5);
+      doc.setFont('helvetica','bold');
+      doc.setTextColor(...(r.type==='toil' ? green : accent));
+      doc.text(valStr, tc[4]+1, y+5);
+
+      doc.setDrawColor(...rule); doc.setLineWidth(0.2); doc.line(14,y+8,W-14,y+8);
+      y += 9;
+    });
+
+    if (!rows.length) {
+      doc.setFontSize(7); doc.setTextColor(...muted); doc.setFont('helvetica','normal');
+      doc.text('No overtime recorded this period', 14, y+5); y += 10;
+    }
+
+    y += 6;
+
+    // Summary boxes
+    const bW = (W-28-6)/2;
+    doc.setFillColor(...surface); doc.rect(14,y,bW,22,'F');
+    doc.setDrawColor(...rule); doc.setLineWidth(0.4); doc.rect(14,y,bW,22,'S');
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('TOTAL OVERTIME PAY OWED', 17, y+6);
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(...accent);
+    doc.text(`R${pay.toFixed(2)}`, 17, y+17);
+
+    const b2 = 14+bW+6;
+    doc.setFillColor(...surface); doc.rect(b2,y,bW,22,'F');
+    doc.setDrawColor(...rule); doc.rect(b2,y,bW,22,'S');
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('CLOSING TOIL BALANCE', b2+3, y+6);
+    doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(...green);
+    doc.text(`${toil.close.toFixed(1)} hrs`, b2+3, y+17);
+
+    y += 28;
+
+    // TOIL breakdown
+    doc.setFillColor(...surface); doc.rect(14,y,W-28,12,'F');
+    doc.setDrawColor(...rule); doc.setLineWidth(0.3); doc.rect(14,y,W-28,12,'S');
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('TOIL BREAKDOWN', 17, y+4.5);
+    doc.setFontSize(7.5); doc.setTextColor(...ink); doc.setFont('helvetica','normal');
+    doc.text(`Opening: ${toil.open.toFixed(1)} hrs`, 17, y+9.5);
+    doc.setTextColor(...green);
+    doc.text(`Accrued: +${toil.accrued.toFixed(1)} hrs`, 75, y+9.5);
+    doc.setFont('helvetica','bold');
+    doc.text(`Closing: ${toil.close.toFixed(1)} hrs`, 148, y+9.5);
+
+    // Signatures
+    const sigY = 252;
+    doc.setFillColor(...surface); doc.rect(0,sigY,W,40,'F');
+    doc.setDrawColor(...ink); doc.setLineWidth(0.5); doc.line(0,sigY,W,sigY);
+
+    const sW = (W-28-10)/2;
+    doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('EMPLOYEE SIGNATURE', 14, sigY+8);
+    doc.setDrawColor(...ink); doc.setLineWidth(0.3); doc.line(14,sigY+22,14+sW,sigY+22);
+    doc.setFontSize(7); doc.text(empName, 14, sigY+28);
+
+    const s2x = 14+sW+10;
+    doc.setFontSize(5.5); doc.text('EXECUTIVE APPROVAL', s2x, sigY+8);
+    doc.line(s2x,sigY+22,s2x+sW,sigY+22);
+    doc.setFontSize(7); doc.text(exec, s2x, sigY+28);
+
+    doc.setFontSize(5.5); doc.setTextColor(...muted);
+    doc.text(`Ref: ${DOC_REF}`, W-14, 293, { align:'right' });
+
+    doc.save(`OT_${empName.replace(/\s+/g,'-')}_${DOC_REF}.pdf`);
+  }
+
+  render();
+</script>
+</body>
+</html>
